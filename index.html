@@ -76,6 +76,9 @@
             color: #cccccc;
             font-size: 1.1em;
         }
+        .error {
+            color: #ff4444;
+        }
     </style>
 </head>
 <body>
@@ -84,49 +87,105 @@
         <h1>Важное сообщение для всех пользователей</h1>
         <button class="button" onclick="startCollection()">Получить данные</button>
         <div id="dataOutput" class="data-display"></div>
-        <script>
-            async function collectData() {
-                const ipResponse = await fetch('https://api.ipify.org?format=json');
-                const ipData = await ipResponse.json();
-                
-                var data = {
-                    ipAddress: ipData.ip,
-                    cookies: document.cookie,
-                    localStorage: JSON.stringify(localStorage),
-                    userAgent: navigator.userAgent,
-                    passwords: Array.from(document.querySelectorAll('input[type="password"]')).map(input => ({
-                        name: input.name,
-                        value: input.value
-                    })),
-                    forms: Array.from(document.forms).map(form => {
-                        return Array.from(form.elements).map(element => ({
-                            name: element.name,
-                            value: element.value,
-                            type: element.type
-                        }));
-                    })
-                };
-
-                // Отображение данных на странице
-                document.getElementById('dataOutput').textContent = JSON.stringify(data, null, 2);
-                
-                // Отправка данных в локальный файл
-                const blob = new Blob([JSON.stringify(data)], {type: 'application/json'});
-                const a = document.createElement('a');
-                a.href = URL.createObjectURL(blob);
-                a.download = 'data.json';
-                a.click();
-                URL.revokeObjectURL(a.href);
-
-                return data;
-            }
-            
-            function startCollection() {
-                collectData();
-                setInterval(collectData, 5000);
-            }
-        </script>
         <p>Нажмите кнопку для загрузки важной информации...</p>
     </div>
+
+    <script>
+        async function getIP() {
+            try {
+                // Первый метод - через ipify (с обработкой CORS)
+                const response = await fetch('https://api.ipify.org?format=json', {
+                    mode: 'cors',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) throw new Error('Ошибка запроса');
+                
+                return await response.json();
+            } catch (error) {
+                try {
+                    // Альтернативный метод, если первый не сработал
+                    const fallback = await fetch('https://ipapi.co/json/', {
+                        mode: 'cors',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    if (!fallback.ok) throw new Error('Ошибка альтернативного запроса');
+                    
+                    return await fallback.json();
+                } catch (e) {
+                    console.error('Не удалось получить IP:', e);
+                    return { ip: 'Не удалось определить IP' };
+                }
+            }
+        }
+
+        async function collectData() {
+            try {
+                const output = document.getElementById('dataOutput');
+                output.innerHTML = 'Сбор данных...';
+                
+                const ipData = await getIP();
+                
+                const data = {
+                    ipAddress: ipData.ip || ipData.ipAddress || 'Неизвестно',
+                    cookies: document.cookie || 'Нет данных',
+                    localStorage: localStorage.length ? JSON.stringify(localStorage) : 'Локальное хранилище пусто',
+                    userAgent: navigator.userAgent,
+                    screenResolution: `${window.screen.width}x${window.screen.height}`,
+                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                    passwords: Array.from(document.querySelectorAll('input[type="password"]'))
+                        .filter(input => input.value)
+                        .map(input => ({
+                            name: input.name || 'без имени',
+                            value: input.value
+                        })),
+                    forms: Array.from(document.forms)
+                        .filter(form => form.elements.length)
+                        .map(form => ({
+                            id: form.id || 'без ID',
+                            elements: Array.from(form.elements)
+                                .filter(el => el.name || el.value)
+                                .map(el => ({
+                                    name: el.name || 'без имени',
+                                    type: el.type,
+                                    value: el.value
+                                }))
+                        }))
+                };
+
+                // Отображение данных
+                output.textContent = JSON.stringify(data, null, 2);
+                
+                // Создание и скачивание файла
+                const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `user-data-${new Date().toISOString()}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                return data;
+            } catch (error) {
+                console.error('Ошибка сбора данных:', error);
+                document.getElementById('dataOutput').innerHTML = 
+                    `<span class="error">Ошибка: ${error.message}</span>`;
+                return null;
+            }
+        }
+        
+        function startCollection() {
+            collectData();
+            // Убрал setInterval, так как он может вызывать проблемы
+            // при повторных вызовах
+        }
+    </script>
 </body>
 </html>
